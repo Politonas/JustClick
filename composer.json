@@ -1,0 +1,29 @@
+{
+	"name": "anba/justclick",
+	"require": {
+		"php": ">=5.3.0",
+        "electrolinux/phpquery": "dev-master"
+	},
+	"description": "PHP interface to JustClick.Ru",
+	"version": "1.0.0",
+	"type": "library",
+	"keywords": ["justclick"],
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Anton Bakulev",
+			"email": "bakulev@users.noreply.github.com",
+			"homepage": "https://github.com/bakulev/JustClick",
+			"role": "Developer"
+		}
+	],
+	"support": {
+		"email": "bakulev@users.noreply.github.com",
+		"source": "https://github.com/bakulev/JustClick"
+	},
+	"autoload": {
+		"psr-0": {
+			"Anba\\JustClick": "lib/"
+		}
+	}
+}
