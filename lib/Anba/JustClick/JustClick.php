@@ -9,6 +9,9 @@
 */
 //require_once 'phpquery.class.php';
 //require_once 'persistent.class.php';
+namespace Anba\JustClick;
+
+use \phpQuery;
 
 class JustClick //extends Persistent
 {
@@ -33,6 +36,7 @@ class JustClick //extends Persistent
 	private $_proxyType = 'https'; //socks4|socks5
 	public $useProxy    = false;  
 	private $_debug = false;
+	private $_count = 0;
     
 	public function __construct( $name, $login = '', $pass = '' )
 	{
@@ -52,7 +56,7 @@ class JustClick //extends Persistent
 	}
 
 	public function __destruct() {
-		if( $this->_debug) echo 'destruct vk: '.$this->classname."\r\n";
+		//if( $this->_debug) echo 'destruct vk: '.$this->classname."\r\n";
 		//$this->save();
 	}
 
@@ -206,6 +210,124 @@ class JustClick //extends Persistent
 		return $r;
 	}
 
+	public function getBrief( $result_body = false )
+	{
+		$brief = false; // Результат запроса. Список партнёрок.
+		// Если результат запроса с предидущего шага неизвестен, то запросить его.
+		if( ! $result_body ) {
+			$request_url = 'http://vume.justclick.ru/assistant/brief/';
+			//if( $this->_debug) echo $request_url;
+			$get_data = array(
+			);
+			$get_query = http_build_query($get_data);
+			if (!empty( $get_query )) $request_url .= '?'.$get_query;
+			$post_data = array(
+			);
+			$post_query = http_build_query( $post_data );
+			$result_body = $this->execCurl( $request_url, '', $post_data );
+			//if( $this->_debug) echo $result_body;
+		}
+		$doc = phpQuery::newDocument($result_body);
+		$title = $doc['html']['head']['title']->text();
+		//print_r($title);
+		if ( strstr($title, 'Авторизация в системе') // Если не авторизованы.
+		   && $this->_count++ < 2 // Даётся две попытки авторизации.
+		) {
+			echo "true\r\n";
+			$result_body = $this->loginJc( $request_url );
+			$brief = $this->getBrief( $result_body );
+		} elseif( strstr($title, 'Сводка') ) { 
+			$this->_count = 0; 
+			$brief = array();
+			$pages = $doc['html']['body']['.totalpages']->text();
+			for( $page = 1; $page <= $pages; $page++ ) {
+				$items = $this->getBriefAjax( $page );
+				//if( $this->_debug) print_r($items);
+				foreach( $items as $item_id => $item ) {
+					if( !isset( $brief[$item_id] ) ) $brief[$item_id] = $item;
+				}
+			}
+			//if( $this->_debug) print_r($brief);
+			//if( $this->_debug) echo "Count: ".count($brief)."\r\n";
+		} else {
+			// Ошибка.
+			$brief = false;
+		}
+		return $brief;
+	}
+	public function getBriefAjax( $page = 1, $result_body = false )
+	{
+		$items = false; // Результат запроса. Список партнёрок.
+		// Если результат запроса с предидущего шага неизвестен, то запросить его.
+		if( ! $result_body ) {
+			$request_url = 'http://vume.justclick.ru/assistant/briefajax/';
+			//if( $this->_debug ) echo $request_url;
+			$get_data = array(
+				'p' => $page,
+				'selector' => '',
+				'format' => 'view',
+				'_' => time().'000'
+			);
+			$get_query = http_build_query($get_data);
+			//echo "Get: ".$get_query."\r\n";
+			if (!empty( $get_query )) $request_url .= '?'.$get_query;
+			//echo $request_url."\r\n";
+			$post_data = array(
+			);
+			$post_query = http_build_query( $post_data );
+			//echo $request_url."\r\n";
+			$result_body = $this->execCurl( $request_url, '', $post_data );
+			//if( $this->_debug) echo $result_body;
+		}
+		$doc = phpQuery::newDocument($result_body);
+		//echo $result_body; die;
+		$table = pq('div.result > table.standart-view');
+		// cash_total // Выплатят 'Всего заработано Вами'
+		// cash_payed // Выплачено 'Вам уже выплачено'
+		// cash_debt // Долг 'Вам должны выплатить'
+		// subsribers // Подписчики 'Всего от Вас подписчиков'
+		// partners // Партнеры 'Всего под Вами партнёров'
+		// sold_direct // 'Всего прямых продаж'
+		// sold_partn // 'Всего продаж партнёрами'
+		// clicks // Переходы 'Всего кликов'
+		// payed // Оплачено заказов.
+		// payed_sum // Сумма оплаченных заказов.
+		// payed_comm // Комиссия с оплаченных заказов.
+		// unpayed // Неоплаченных заказов.
+		// unpayed_sum // Сумма неоплаченных заказов.
+		// unpayed_comm // Комиссия с неоплаченных заказов.
+		// canceled // Отменённых заказов.
+		// canceled_sum // Сумма отменённых заказов.
+		// canceled_comm // Комиссия с отменённых заказов.
+		foreach($table['tr:not(.main-tr):gt(0)'] as $tr) {
+			// iteration returns PLAIN dom nodes, NOT phpQuery objects
+			$tr = pq($tr);
+			// Название партнерки
+			$item['name'] = $tr['td:eq(0) > a']->html();
+			$item_id = trim( substr($tr['td:eq(0) > a']->attr('href'),19), '/' );
+			// Выплачено 'Вам уже выплачено':
+			$item['cash_payed'] = $tr['td:eq(1)']->html();
+			// Выплатят 'Всего заработано Вами':
+			$item['cash_total'] =  $tr['td:eq(2)']->html();
+			// Долг 'Вам должны выплатить':
+			$item['cash_debt'] = $tr['td:eq(3)']->html();
+			// Переходы 'Всего кликов':
+			$item['clicks'] = $tr['td:eq(4)']->html();
+			// Подписчики 'Всего от Вас подписчиков':
+			$item['subsribers'] = $tr['td:eq(5)']->html();
+			// Партнеры 'Всего под Вами партнёров':
+			$item['partners'] = $tr['td:eq(5)']->html();
+			// 'Всего прямых продаж':
+			// $item['sold_direct'] = $row_value;
+			// 'Всего продаж партнёрами':
+			// $item['sold_partn'] = $row_value;
+			//print_r( pq($tr)->html() ); die;
+			//echo "{$item['name']} ${item['id']}\r\n";// $payed $pay $debt $clicks $subscribers $partners\r\n";
+			$items[$item_id] = $item;
+		}
+		return $items;
+	}
+
   	public function getList(  )
 	{
 		$request_url = 'http://'.$this->username.'.justclick.ru/assistant/howto/';
@@ -276,61 +398,122 @@ class JustClick //extends Persistent
 		return $good;
 	}
 
-  	public function getStats( $part_id )
+  	public function getStats( $part_id, $result_body = false )
 	{
-		$request_url = 'http://'.$this->username.'.justclick.ru/assistant/statsajax/';
+		$brief = false; // Результат запроса. Список партнёрок.
+		// Если результат запроса с предидущего шага неизвестен, то запросить его.
+		if( ! $result_body ) {
+			$request_url = 'http://'.$this->username.'.justclick.ru/assistant/stats/id/'.$part_id.'/';
+			//if( $this->_debug) echo $request_url;
+			$get_data = array(
+			);
+			$get_query = http_build_query($get_data);
+			if (!empty( $get_query )) $request_url .= '?'.$get_query;
+			$post_data = array(
+			);
+			$post_query = http_build_query( $post_data );
+			//echo "Request URL: ".$request_url."\r\n";
+			$result_body = $this->execCurl( $request_url, '', $post_data );
+			//if( $this->_debug) echo $result_body;
+		}
+		$doc = phpQuery::newDocument($result_body);
+		$title = $doc['html']['head']['title']->text();
+		//print_r($title);
+		if ( strstr($title, 'Авторизация в системе') // Если не авторизованы.
+		   && $this->_count++ < 2 // Даётся две попытки авторизации.
+		) {
+			//if( $this->_debug) echo "true\r\n";
+			$result_body = $this->loginJc( $request_url );
+			$brief = $this->getStats( $part_id, $result_body );
+		} elseif( strstr($title, 'Общая статистика') ) { 
+			$this->_count = 0; 
+			$brief = array();
+			// Запись списка прартнёрок.
+			$list = $doc['html']['body']['select.select'];
+			foreach( $list['option'] as $option ) {
+				$option = pq($option);
+				$item_id = $option->val();
+				$item_name = $option->text();
+				//if( $this->_debug) echo "$item_id $item_name\r\n";
+				$brief[$item_id] = $item_name;
+			}
+			//if( $this->_debug) print_r($list);
+			// Запрос параметров статистики.
+			$stat = $this->getStatsAjax( $part_id );
+			//if( $this->_debug) print_r($brief);
+		} else {
+			// Ошибка.
+			$brief = false;
+		}
+		return array($brief, $stat);
+	}
+	public function getStatsAjax( $part_id, $page = 1 )
+	{
+		$items = false; // Результат запроса. Список партнёрок.
+
+		$request_url = 'http://vume.justclick.ru/assistant/statsajax/';
+		//if( $this->_debug ) echo $request_url;
 		$get_data = array(
-		       'p' => 1,
-		'selector' => '{"id":"'.$part_id.'"}',
-		  'format' => 'view'
-		//       '_' => 1382338514077
+				  'p' => $page,
+		   'selector' => '{"id":"'.$part_id.'"}',
+			 'format' => 'view',
+				  '_' => time().'000'
 		);
 		$get_query = http_build_query($get_data);
+		//echo "Get: ".$get_query."\r\n";
 		if (!empty( $get_query )) $request_url .= '?'.$get_query;
+		//echo $request_url."\r\n";
 		$post_data = array(
 		);
 		$post_query = http_build_query( $post_data );
-		//echo "Request URL: ".$request_url."\r\n";
+		//echo $request_url."\r\n";
 		$result_body = $this->execCurl( $request_url, '', $post_data );
+		//if( $this->_debug) echo $result_body;
 
 		$document = phpQuery::newDocument( $result_body );
-		$form = $document->find('div.result > table:eq(1) > tr');
-		$r = pq($form)->html();
-		//echo $r;
-		$restult = array();
-		foreach ($form as $el) {
-			$row_title = pq($el)->find('td:eq(0) > nobr')->text();
-			$row_value = pq($el)->find('td:eq(1) > b')->text();
+		$form = $document->find('table.standart-view');
+		//if( $this->_debug) echo $form->html();
+		$result = array();
+		foreach ($form['tr:gt(0)'] as $el) {
+			$el = pq($el);
+			$row_title = $el['td:eq(0)']->text();
+			$row_value = $el['td:eq(1)']->text();
 			//echo "Row: $row_title : $row_value \r\n";
 			//echo '"'.pq($el)->html().'"'."\r\n";
 			switch( $row_title ) {
 			case 'Всего заработано Вами':
-				$result['cash_total'] = strtr( rtrim( $row_value, 'руб.'), array( ' '=>'', ','=>'.' ) );
+				$result['cash_total'] = strtr( rtrim( $row_value, '=Р'), array( ' '=>'', ','=>'.' ) );
 				break;
 			case 'Вам уже выплачено':
-				$result['cash_payed'] =  strtr( rtrim( $row_value, 'руб.'), array( ' '=>'', ','=>'.' ) );
+				$result['cash_payed'] =  strtr( rtrim( $row_value, '=Р'), array( ' '=>'', ','=>'.' ) );
 				break;
 			case 'Вам должны выплатить':
-				$result['cash_debt'] =  strtr( rtrim( $row_value, 'руб.'), array( ' '=>'', ','=>'.' ) );
+				$result['cash_debt'] =  strtr( rtrim( $row_value, '=Р'), array( ' '=>'', ','=>'.' ) );
 				break;
-			case 'Всего от Вас подписчиков':
+			case 'Подписчиков':
+//Выписано счетов
+//Оплачено счетов
+//Заработано комиссионных
+//Выписано счетов посетителями, пришедшими от Ваших партнёров
+//Оплачено счетов клиентами, пришедшими от Ваших партнёров
+//Заработано комиссионных 2-го уровня (от дохода партнёров)
 				$result['subsribers'] = $row_value;
 				break;
-			case 'Всего под Вами партнёров':
+			case 'Зарегистрировано под Вас партнёров в этот период':
 				$result['partners'] = $row_value;
 				break;
-			case 'Всего прямых продаж':
+			case 'Прямых продаж':
 				$result['sold_direct'] = $row_value;
 				break;
-			case 'Всего продаж партнёрами':
+			case 'Продаж партнёрами':
 				$result['sold_partn'] = $row_value;
 				break;
-			case 'Всего кликов':
+			case 'Переходов по Вашей ссылке':
 				$result['clicks'] = $row_value;
 				break;
 			}
 		}
-		//print_r($result);
+		//if( $this->_debug) print_r($result);
 		return $result;
 	}
 
@@ -386,6 +569,211 @@ class JustClick //extends Persistent
 		//print_r($result);
 		return $result;
 	}
+
+  	public function getAds( $part_id, $result_body = false )
+	{
+		$brief = false; // Результат запроса. Список партнёрок.
+		// Если результат запроса с предидущего шага неизвестен, то запросить его.
+		if( ! $result_body ) {
+			$request_url = 'http://'.$this->username.'.justclick.ru/publicity/ads/id/'.$part_id.'/';
+			//if( $this->_debug) echo $request_url;
+			$get_data = array(
+			);
+			$get_query = http_build_query($get_data);
+			if (!empty( $get_query )) $request_url .= '?'.$get_query;
+			$post_data = array(
+			);
+			$post_query = http_build_query( $post_data );
+			//echo "Request URL: ".$request_url."\r\n";
+			$result_body = $this->execCurl( $request_url, '', $post_data );
+			//if( $this->_debug) echo $result_body;
+		}
+		$doc = phpQuery::newDocument($result_body);
+		$title = $doc['html']['head']['title']->text();
+		//if( $this->_debug)print_r($title);
+		if ( strstr($title, 'Авторизация в системе') // Если не авторизованы.
+		   && $this->_count++ < 2 // Даётся две попытки авторизации.
+		) {
+			//if( $this->_debug) echo "true\r\n";
+			$result_body = $this->loginJc( $request_url );
+			$brief = $this->getAds( $part_id, $result_body );
+		} elseif( strstr($title, 'Рекламные кампании') ) { 
+			$this->_count = 0; 
+			// Запрос параметров статистики.
+			$brief = $this->getAdsAjax( $part_id );
+		} else {
+			// Ошибка.
+			$brief = false;
+		}
+		return $brief;
+	}
+	public function getAdsAjax( $part_id, $page = 1 )
+	{
+		$items = false; // Результат запроса. Список партнёрок.
+
+		$request_url = 'http://vume.justclick.ru/publicity/adsajax/';
+		//if( $this->_debug ) echo $request_url;
+		$get_data = array(
+				  'p' => $page,
+		   'selector' => '{"id":"'.$part_id.'"}',
+			 'format' => 'view',
+				  '_' => time().'000'
+		);
+		$get_query = http_build_query($get_data);
+		//echo "Get: ".$get_query."\r\n";
+		if (!empty( $get_query )) $request_url .= '?'.$get_query;
+		//echo $request_url."\r\n";
+		$post_data = array(
+		);
+		$post_query = http_build_query( $post_data );
+		//echo $request_url."\r\n";
+		$result_body = $this->execCurl( $request_url, '', $post_data );
+		//if( $this->_debug) echo $result_body;
+
+		$document = phpQuery::newDocument( $result_body );
+		$form = $document->find('div.result > table.standart-view');
+		//if( $this->_debug) echo $form->html();
+		$result = array();
+		foreach ($form['tr.acordeon-tit'] as $el) {
+			$el = pq($el);
+			//if( $this->_debug) echo $el->html();
+			$group_id = $el['td:eq(0) > div.toolbar > a > i']->attr('rel');
+			$group_name = trim($el['td:eq(0)']->text());
+			//if( $this->_debug) echo "Row: '$group_id' : '$group_name'\r\n";
+			$result[$group_id]['name'] = $group_name;
+			$result[$group_id]['marks'] = $this->getAdsLabs( $part_id, $group_id );
+		}
+		//if( $this->_debug) print_r($result);
+		return $result;
+	}
+	public function getAdsLabs( $part_id, $group_id, $page = 1 )
+	{
+		$items = false; // Результат запроса. Список партнёрок.
+
+		$request_url = 'http://vume.justclick.ru/publicity/adslabs/';
+		//if( $this->_debug ) echo $request_url;
+		$get_data = array(
+		   'group_id' => $group_id,
+		   'selector' => '{"id":"'.$part_id.'"}',
+				  '_' => time().'000'
+		);
+		$get_query = http_build_query($get_data);
+		//echo "Get: ".$get_query."\r\n";
+		if (!empty( $get_query )) $request_url .= '?'.$get_query;
+		//echo $request_url."\r\n";
+		$post_data = array(
+		);
+		$post_query = http_build_query( $post_data );
+		//echo $request_url."\r\n";
+		$result_body = $this->execCurl( $request_url, '', $post_data );
+		//if( $this->_debug) echo $result_body;
+
+		$document = phpQuery::newDocument( $result_body );
+		$form = $document->find('div.result-partners > table.standart-view');
+		//if( $this->_debug) echo $form->html();
+		$result = array();
+		foreach ($form['tr'] as $el) {
+			$el = pq($el);
+			if( !empty($mark_name) and !empty($mark_id) ) {
+				//if( $this->_debug) echo $el->html();
+				$mark_url = $el['td > div.subcontent > div > a']->attr('href');
+				//if( $this->_debug) echo "mark_url = $mark_url\r\n";
+				$result[$mark_id]['name'] = $mark_name;
+				$result[$mark_id]['url'] = $mark_url;
+				unset($mark_name);
+				unset($mark_id);
+			}
+			$mark_name = $el['td.td-left']->text();
+			//if( $this->_debug) echo "mark_name = $mark_name\r\n";
+			$mark_id = $el['td.td-right > div.toolbar > a.delete-item']->attr('rel');
+			//if( $this->_debug) echo "mark_id = $mark_id\r\n";
+		}
+		//if( $this->_debug) print_r($result);
+		return $result;
+	}
+  	public function setAdsGroupEdit( $part_id, $group_title, $result_body = false )
+	{
+		$brief = false; // Результат запроса. Список партнёрок.
+		// Если результат запроса с предидущего шага неизвестен, то запросить его.
+		if( ! $result_body ) {
+			$request_url = 'http://'.$this->username.'.justclick.ru/publicity/adsgroupedit/id/'.$part_id.'/';
+			//if( $this->_debug) echo $request_url;
+			$get_data = array(
+			);
+			$get_query = http_build_query($get_data);
+			if (!empty( $get_query )) $request_url .= '?'.$get_query;
+			$post_data = array(
+			    'group_title' => $group_title,
+			           'save' => 'Сохранить'
+			);
+			$post_query = http_build_query( $post_data );
+			//echo "Request URL: ".$request_url."\r\n";
+			$result_body = $this->execCurl( $request_url, '', $post_data );
+			//if( $this->_debug) echo $result_body;
+		}
+		$doc = phpQuery::newDocument($result_body);
+		$title = $doc['html']['head']['title']->text();
+		//if( $this->_debug)print_r($title);
+		if ( strstr($title, 'Авторизация в системе') // Если не авторизованы.
+		   && $this->_count++ < 2 // Даётся две попытки авторизации.
+		) {
+			//if( $this->_debug) echo "true\r\n";
+			$result_body = $this->loginJc( $request_url );
+			$brief = $this->setAdsGroupEdit( $part_id, $group_title, $result_body );
+		} elseif( strstr($title, 'Рекламные кампании') ) { 
+			$this->_count = 0; 
+			// Запрос параметров статистики.
+			$brief = $this->getAdsAjax( $part_id );
+		} else {
+			// Ошибка.
+			$brief = false;
+		}
+		return $brief;
+	}
+  	public function setAdsEdit( $part_id, $group_id, $ad_title, $ad_url, $result_body = false )
+	{
+		$brief = false; // Результат запроса. Список партнёрок.
+		// Если результат запроса с предидущего шага неизвестен, то запросить его.
+		if( ! $result_body ) {
+			$request_url = 'http://'.$this->username.'.justclick.ru/publicity/adsedit/gid/'.$group_id.'/id/'.$part_id.'/';
+			//if( $this->_debug) echo $request_url;
+			$get_data = array(
+			);
+			$get_query = http_build_query($get_data);
+			if (!empty( $get_query )) $request_url .= '?'.$get_query;
+			$post_data = array(
+			          'ad_id' => '',
+			    'ad_group_id' => $group_id,
+			       'ad_title' => $ad_title,
+			         'ad_url' => $ad_url,
+			        'ad_text' => '',
+			 'ad_external_id' => '',
+			           'save' => 'Сохранить'
+			);
+			$post_query = http_build_query( $post_data );
+			//echo "Request URL: ".$request_url."\r\n";
+			$result_body = $this->execCurl( $request_url, '', $post_data );
+			//if( $this->_debug) echo $result_body;
+		}
+		$doc = phpQuery::newDocument($result_body);
+		$title = $doc['html']['head']['title']->text();
+		//if( $this->_debug)print_r($title);
+		if ( strstr($title, 'Авторизация в системе') // Если не авторизованы.
+		   && $this->_count++ < 2 // Даётся две попытки авторизации.
+		) {
+			//if( $this->_debug) echo "true\r\n";
+			$result_body = $this->loginJc( $request_url );
+			$brief = $this->setAdsEdit( $part_id, $group_id, $ad_title, $ad_url, $result_body );
+		} elseif( strstr($title, 'Рекламные кампании') ) { 
+			$this->_count = 0; 
+			// Запрос параметров статистики.
+			$brief = $this->getAdsAjax( $part_id );
+		} else {
+			// Ошибка.
+			$brief = false;
+		}
+		return $brief;
+	}
 	/** 
 	*   Выполнение запроса (вынесено в отдельный метод, для более удобного дебага)
 	*/
@@ -394,7 +782,7 @@ class JustClick //extends Persistent
 		if( !isset($this->_curl) or 'resource'!=gettype($this->_curl) ) {
 			// Инициализация CURL
 			$this->_curl = curl_init(); 
-			if( $this->_debug) echo "CURL initialize.\r\n";
+			//if( $this->_debug) echo "CURL initialize.\r\n";
 			// Установка флага отладки.
 			//curl_setopt($this->_curl, CURLOPT_VERBOSE, true);
 			// Настройка прокси.
@@ -418,7 +806,7 @@ class JustClick //extends Persistent
 			  curl_setopt($this->_curl, CURLOPT_COOKIEFILE, $this->_cookies); 
 			}
 		}
-		if( $this->_debug) var_dump($this->_curl);
+		//if( $this->_debug) var_dump($this->_curl);
 
 		$url = parse_url( $request_url );
 		$headers = array_merge( array( 
