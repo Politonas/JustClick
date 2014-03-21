@@ -40,82 +40,16 @@
  * @license    http://www.opensource.org/licenses/BSD-3-Clause  The BSD 3-Clause License
  * @link       http://www.github.com/sebastianbergmann/money
  */
-namespace SebastianBergmann\Money;
+require 'vendor/autoload.php';
+use Anba\JustClick\JustClick;
 
-class CurrencyTest extends \PHPUnit_Framework_TestCase
+class JustClickTest extends \PHPUnit_Framework_TestCase
 {
     /**
      * @covers            \SebastianBergmann\Money\Currency::__construct
-     * @expectedException \SebastianBergmann\Money\InvalidArgumentException
      */
     public function testExceptionIsRaisedForInvalidConstructorArgument()
     {
-        new Currency(null);
-    }
-
-    /**
-     * @covers \SebastianBergmann\Money\Currency::__construct
-     */
-    public function testObjectCanBeConstructedForValidConstructorArgument()
-    {
-        $c = new Currency('EUR');
-
-        $this->assertInstanceOf('SebastianBergmann\\Money\\Currency', $c);
-
-        return $c;
-    }
-
-    /**
-     * @covers  \SebastianBergmann\Money\Currency::__toString
-     * @depends testObjectCanBeConstructedForValidConstructorArgument
-     */
-    public function testCanBeCastToString(Currency $c)
-    {
-        $this->assertEquals('EUR', (string)$c);
-    }
-
-    /**
-     * @covers  \SebastianBergmann\Money\Currency::getCurrencyCode
-     * @depends testObjectCanBeConstructedForValidConstructorArgument
-     */
-    public function testCurrencyCodeCanBeRetrieved(Currency $c)
-    {
-        $this->assertEquals('EUR', $c->getCurrencyCode());
-    }
-
-    /**
-     * @covers  \SebastianBergmann\Money\Currency::getDefaultFractionDigits
-     * @depends testObjectCanBeConstructedForValidConstructorArgument
-     */
-    public function testDefaultFractionDigitsCanBeRetrieved(Currency $c)
-    {
-        $this->assertEquals(2, $c->getDefaultFractionDigits());
-    }
-
-    /**
-     * @covers  \SebastianBergmann\Money\Currency::getDisplayName
-     * @depends testObjectCanBeConstructedForValidConstructorArgument
-     */
-    public function testDisplayNameCanBeRetrieved(Currency $c)
-    {
-        $this->assertEquals('Euro', $c->getDisplayName());
-    }
-
-    /**
-     * @covers  \SebastianBergmann\Money\Currency::getNumericCode
-     * @depends testObjectCanBeConstructedForValidConstructorArgument
-     */
-    public function testNumericCodeCanBeRetrieved(Currency $c)
-    {
-        $this->assertEquals(978, $c->getNumericCode());
-    }
-
-    /**
-     * @covers  \SebastianBergmann\Money\Currency::getSubUnit
-     * @depends testObjectCanBeConstructedForValidConstructorArgument
-     */
-    public function testSubUnitCanBeRetrieved(Currency $c)
-    {
-        $this->assertEquals(100, $c->getSubUnit());
+        new JustClick(null);
     }
 }

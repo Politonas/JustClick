@@ -10,28 +10,18 @@
   <delete dir="${basedir}/build/phpdox"/>
  </target>
 
- <target name="prepare" depends="clean,generate-code" description="Prepare for build">
+ <target name="prepare" depends="clean" description="Prepare for build">
   <mkdir dir="${basedir}/build/api"/>
   <mkdir dir="${basedir}/build/coverage"/>
   <mkdir dir="${basedir}/build/logs"/>
   <mkdir dir="${basedir}/build/pdepend"/>
  </target>
 
- <target name="generate-code" description="Generate Currency-specific subclasses of Money and autoloader code">
-  <exec executable="${basedir}/build/generate-child-classes.php"/>
-
-  <exec executable="${basedir}/build/tools/phpab.phar">
-   <arg value="--output" />
-   <arg path="src/autoload.php" />
-   <arg path="src" />
-  </exec>
- </target>
-
  <target name="lint">
   <apply executable="php" failonerror="true">
    <arg value="-l" />
 
-   <fileset dir="${basedir}/src">
+   <fileset dir="${basedir}/lib">
     <include name="**/*.php" />
     <modified />
    </fileset>
@@ -50,7 +40,7 @@
    <arg path="${basedir}/build/logs/phploc.csv" />
    <arg value="--log-xml" />
    <arg path="${basedir}/build/logs/phploc.xml" />
-   <arg path="${basedir}/src" />
+   <arg path="${basedir}/lib" />
    <arg path="${basedir}/tests" />
   </exec>
  </target>
@@ -60,13 +50,13 @@
    <arg value="--jdepend-xml=${basedir}/build/logs/jdepend.xml" />
    <arg value="--jdepend-chart=${basedir}/build/pdepend/dependencies.svg" />
    <arg value="--overview-pyramid=${basedir}/build/pdepend/overview-pyramid.svg" />
-   <arg path="${basedir}/src" />
+   <arg path="${basedir}/lib" />
   </exec>
  </target>
 
  <target name="phpmd" description="Perform project mess detection using PHPMD and print result in text format">
   <exec executable="${basedir}/build/tools/phpmd.phar">
-   <arg path="${basedir}/src" />
+   <arg path="${basedir}/lib" />
    <arg value="text" />
    <arg path="${basedir}/build/phpmd.xml" />
   </exec>
@@ -74,7 +64,7 @@
 
  <target name="phpmd-ci" description="Perform project mess detection using PHPMD and log result in XML format">
   <exec executable="${basedir}/build/tools/phpmd.phar">
-   <arg path="${basedir}/src" />
+   <arg path="${basedir}/lib" />
    <arg value="xml" />
    <arg path="${basedir}/build/phpmd.xml" />
    <arg value="--reportfile" />
@@ -87,7 +77,7 @@
    <arg value="--standard=PSR2" />
    <arg value="--extensions=php" />
    <arg value="--ignore=autoload.php" />
-   <arg path="${basedir}/src" />
+   <arg path="${basedir}/lib" />
    <arg path="${basedir}/tests" />
   </exec>
  </target>
@@ -99,7 +89,7 @@
    <arg value="--standard=PSR2" />
    <arg value="--extensions=php" />
    <arg value="--ignore=autoload.php" />
-   <arg path="${basedir}/src" />
+   <arg path="${basedir}/lib" />
   </exec>
  </target>
 
@@ -107,7 +97,7 @@
   <exec executable="${basedir}/build/tools/phpcpd.phar">
    <arg value="--log-pmd" />
    <arg path="${basedir}/build/logs/pmd-cpd.xml" />
-   <arg path="${basedir}/src" />
+   <arg path="${basedir}/lib" />
   </exec>
  </target>
 
