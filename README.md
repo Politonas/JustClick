@@ -34,6 +34,14 @@ PHP interface to JustClick.Ru
 Запись изменений на GitHub
     git push https://github.com/bakulev/JustClick.git
 
+Планируемые улучшения
+=====================
+
+Реализовать повтор вызовов после exception способом, описанным тут:
+    http://codehelper.ru/questions/367/springnet-aop-%D0%B7%D0%B0-%D1%81%D1%86%D0%B5%D0%BD%D0%BE%D0%B9-%D1%87%D0%B0%D1%81%D1%82%D1%8C-1
+Описание создани Exception в PHP:
+	http://project.net.ru/web-master/php/article5/language.exceptions.html
+
 Изменения
 ========
 
@@ -50,3 +58,14 @@ PHP interface to JustClick.Ru
     function serialize $this->all(null, null, null, false, false))); 
 поставил false, false, чтобы сохранялись не только долгие cookie, но и сессионные.
 
+В класс обработчик файла для cookie
+    vendor/guzzle/plugin-cookie/Guzzle/Plugin/Cookie/CookieJar/FileCookieJar.php
+добавил в метод load проверку существования и возможности записи в файл.
+
+Разное
+======
+
+Для отладки запросов используется запрос к своему серверу:
+	 $request_url = 'http://tirmethod.vipforex.com/request_debug.php';
+Описание использования Crawler XPath в Symfony2:
+	http://symfony.com/doc/current/components/dom_crawler.html

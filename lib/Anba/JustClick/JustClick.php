@@ -196,32 +196,21 @@ class JustClick
 		if ($this->_debug) echo $crawler->text();
         if ($crawler->filter('html:contains("Сводка")')->count() > 0) { 
             $brief = array();
-			// Поиск списка партнёров.
-			$options = $crawler->filter('select.select')->filter('option');
-			// Запрос списка партнёрских программ.
-			$keys = $options->each(function (Crawler $node, $i) {
-				return $node->attr('value');
-			});
-			$values = $options->each(function (Crawler $node, $i) {
-				$brief[$node->attr('value')] = $node->text();
-				return $node->text();
-			});
-			$brief = array_combine($keys, $values);
-			//var_dump($brief);
+			// Запрос дополнительных параметров.
 			// Определение количества страниц.
             $pages = $crawler->filter('span.totalpages')->text();
 			if ($this->_debug) echo 'Pages: '.$pages."\r\n";
             for( $page = 1; $page <= $pages; $page++ ) {
-				echo 'Page '.$page."\r\n";
-                $items = $this->getBriefAjax( $page );
-                foreach( $items as $item_id => $item ) {
-                    if( !isset( $brief[$item_id] ) ) $brief[$item_id] = $item;
-                }
+				if ($this->_debug) echo 'Page '.$page."\r\n";
+				$items = $this->getBriefAjax( $page );
+				foreach ($items as $item_id => $item) {
+                	$brief[$item_id] = $item;
+				}
             }
             //if( $this->_debug) echo "Count: ".count($brief)."\r\n";
         } else {
             // Ошибка.
-            $brief = false;
+			throw new Exception('Html don\'t contains "Сводка" words.');
         }
         return $brief;
     }
@@ -246,7 +235,6 @@ class JustClick
     public function getBriefAjax( $page = 1, $result_body = false )
     {
 		$request_url = $this->justclick_schema.'://'.$this->username.'.'.($this->justclick_fqdn).'/advertise/assistant/briefajax/';
-		$request_url = 'http://tirmethod.vipforex.com/request_debug.php';
 		// Подготовка данных для отправки.
 		$get_data = array(
 			'p' => $page,
@@ -255,14 +243,14 @@ class JustClick
 			'_' => time().'000'
 		);
         $get_query = http_build_query($get_data);
-        if (!empty( $get_query )) $request_url += '?'.$get_query;
+        if (!empty( $get_query )) $request_url .= '?'.$get_query;
 		$post_data = array(
 		);
         try {
             // Отправляется запрос на форму авторизации.
             $crawler = $this->client->request('GET', $request_url, $post_data);
         } catch (Guzzle\Http\Exception\CurlException $e) {
-           echo 'Error #'.$e->getErrorNo().': '.$e->getError()."\r\n";;
+        	echo 'Error #'.$e->getErrorNo().': '.$e->getError()."\r\n";;
         }
 
 		if ($crawler->filter('html:contains("Авторизация в системе")')->count() > 0) {
@@ -271,37 +259,54 @@ class JustClick
 
 		if ($this->_debug) echo $crawler->text();
 
-		$items = array();
-		/*
-        $doc = phpQuery::newDocument($result_body);
-        //echo $result_body; die;
-        $table = pq('div.result > table.standart-view');
-        foreach($table['tr:not(.main-tr):gt(0)'] as $tr) {
-            // iteration returns PLAIN dom nodes, NOT phpQuery objects
-            $tr = pq($tr);
-            // Название партнерки
-            $item['name'] = $tr['td:eq(0) > a']->html();
-            $item_id = trim( substr($tr['td:eq(0) > a']->attr('href'),19), '/' );
-            // Выплачено 'Вам уже выплачено':
-            $item['cash_payed'] = $tr['td:eq(1)']->html();
-            // Выплатят 'Всего заработано Вами':
-            $item['cash_total'] =  $tr['td:eq(2)']->html();
-            // Долг 'Вам должны выплатить':
-            $item['cash_debt'] = $tr['td:eq(3)']->html();
-            // Переходы 'Всего кликов':
-            $item['clicks'] = $tr['td:eq(4)']->html();
-            // Подписчики 'Всего от Вас подписчиков':
-            $item['subsribers'] = $tr['td:eq(5)']->html();
-            // Партнеры 'Всего под Вами партнёров':
-            $item['partners'] = $tr['td:eq(5)']->html();
-            // 'Всего прямых продаж':
-            // $item['sold_direct'] = $row_value;
-            // 'Всего продаж партнёрами':
-            // $item['sold_partn'] = $row_value;
-            //print_r( pq($tr)->html() ); die;
-            //echo "{$item['name']} ${item['id']}\r\n";// $payed $pay $debt $clicks $subscribers $partners\r\n";
-            $items[$item_id] = $item;
-        }*/
+        if ($crawler->filter('html:contains("Название партнерки")')->count() > 0) { 
+			$items = array();
+			// Поиск списка партнёров из выпадающего меню.
+			//$options = $crawler->filter('body > div.result > table.standart-view > tr:not(.main-tr):gt(0)');
+			$options = $crawler->filterXPath('.//body/div/table/tr[position()>2]');
+			$values = $options->each(function (Crawler $node, $i) {
+				$name = $node->filterXPath('td[position()=1]/a');
+				if(1 === preg_match('/\/advertise\/assistant\/tools\/id\/([0-9]+)\//', $name->attr('href'), $matches)) {
+					// Можно и через substr находить номер.
+            		//$item_id = trim( substr($tr['td:eq(0) > a']->attr('href'),19), '/' );
+					$item_id = $matches[1];
+				} else {
+					throw new Exception('Can\'t find partner number in '.$href);
+				}
+				$item = array();
+				// Номер партнёрки для контроля. Вообще он в индексе записи содержится.
+				$item['id'] = $item_id;
+				// Наименование партнёрки.
+				$item['name'] = $name->text();
+				// Выплачено 'Вам уже выплачено':
+				$item['cash_payed'] = strtr(trim($node->filterXPath('td[position()=2]')->html()), array(' '=>''));
+				// Выплатят 'Всего заработано Вами':
+				$item['cash_total'] = strtr(trim($node->filterXPath('td[position()=3]')->html()), array(' '=>'')); 
+				// Долг 'Вам должны выплатить':
+				$item['cash_debt'] = strtr(trim($node->filterXPath('td[position()=4]')->html()), array(' '=>''));
+				// Переходы 'Всего кликов':
+				$item['clicks'] = $node->filterXPath('td[position()=5]')->html();
+				// Подписчики 'Всего от Вас подписчиков':
+				$item['subsribers'] = $node->filterXPath('td[position()=6]')->html();
+				// Партнеры 'Всего под Вами партнёров':
+				$item['partners'] = $node->filterXPath('td[position()=7]')->html();
+				// 'Всего прямых продаж':
+				// $item['sold_direct'] = $row_value;
+				// 'Всего продаж партнёрами':
+				// $item['sold_partn'] = $row_value;
+				//print_r( pq($tr)->html() ); die;
+				//echo "{$item['name']} ${item['id']}\r\n";// $payed $pay $debt $clicks $subscribers $partners\r\n";
+				$items[$item_id] = $item;
+				return array($item_id => $item);;//$node->html();
+			});
+			foreach($values as $item) {
+				//var_dump($item);
+				$items[key($item)] = current($item);
+			}
+			//print_r($items);
+		} else {
+			throw new Exception('Html don\'t contains "Название партнерки" words.');
+		}
         return $items;
     }
 
@@ -327,20 +332,22 @@ class JustClick
 		if ($this->_debug) echo $crawler->text();
         if ($crawler->filter('html:contains("Сводка")')->count() > 0) { 
             $brief = array();
-			// Поиск списка партнёров.
+			// Поиск списка партнёров из выпадающего меню.
 			$options = $crawler->filter('select.select')->filter('option');
 			// Запрос списка партнёрских программ.
 			$keys = $options->each(function (Crawler $node, $i) {
-				return $node->attr('value');
+				if ($i > 0) return $node->attr('value');
 			});
 			$values = $options->each(function (Crawler $node, $i) {
 				$brief[$node->attr('value')] = $node->text();
-				return $node->text();
+				if ($i > 0) return $node->text();
 			});
+			// Присвоение каждому идентификатору названия партнёрской программы.
 			$brief = array_combine($keys, $values);
+			unset($brief['']); // Убрать лишний первый элемент массива.
         } else {
             // Ошибка.
-            $brief = false;
+			throw new Exception('Html don\'t contains "Сводка" words.');
         }
         return $brief;
     }
