@@ -2,7 +2,8 @@
 	"name": "anba/justclick",
 	"require": {
 		"php": ">=5.3.0",
-        "electrolinux/phpquery": "dev-master"
+        "fabpot/goutte": "~1",
+		"guzzle/plugin-cookie": "~3"
 	},
 	"description": "PHP interface to JustClick.Ru",
 	"version": "1.0.0",
