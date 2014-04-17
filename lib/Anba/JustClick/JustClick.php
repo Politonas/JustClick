@@ -557,82 +557,96 @@ class JustClick
         return $result;
     }
 
-      public function getAds( $part_id, $result_body = false )
+	public function getAds( $part_id )
     {
-        $brief = false; // Результат запроса. Список партнёрок.
-        // Если результат запроса с предидущего шага неизвестен, то запросить его.
-        if( ! $result_body ) {
-            $request_url = 'http://'.$this->username.'.justclick.ru/publicity/ads/id/'.$part_id.'/';
-            //if( $this->_debug) echo $request_url;
-            $get_data = array(
-            );
-            $get_query = http_build_query($get_data);
-            if (!empty( $get_query )) $request_url .= '?'.$get_query;
-            $post_data = array(
-            );
-            $post_query = http_build_query( $post_data );
-            //echo "Request URL: ".$request_url."\r\n";
-            $result_body = $this->execCurl( $request_url, '', $post_data );
-            //if( $this->_debug) echo $result_body;
+		$request_url = $this->justclick_schema.'://'.$this->username.'.'.($this->justclick_fqdn).'/advertise/publicity/ads/id/'.$part_id.'/';
+		// Подготовка данных для отправки.
+		$get_data = array(
+		);
+		$post_data = array(
+		);
+        try {
+            // Отправляется запрос на форму авторизации.
+            $crawler = $this->client->request('GET', $request_url);
+        } catch (Guzzle\Http\Exception\CurlException $e) {
+			echo 'Error #'.$e->getErrorNo().': '.$e->getError()."\r\n";;
         }
-        $doc = phpQuery::newDocument($result_body);
-        $title = $doc['html']['head']['title']->text();
-        //if( $this->_debug)print_r($title);
-        if ( strstr($title, 'Авторизация в системе') // Если не авторизованы.
-           && $this->_count++ < 2 // Даётся две попытки авторизации.
-        ) {
-            //if( $this->_debug) echo "true\r\n";
-            $result_body = $this->loginJc( $request_url );
-            $brief = $this->getAds( $part_id, $result_body );
-        } elseif( strstr($title, 'Рекламные кампании') ) { 
-            $this->_count = 0; 
-            // Запрос параметров статистики.
-            $brief = $this->getAdsAjax( $part_id );
+
+		if ($crawler->filter('html:contains("Авторизация в системе")')->count() > 0) {
+				$crawler = $this->loginJc($request_url);
+		}
+
+		if ($this->_debug) echo $crawler->text();
+        if ($crawler->filter('html:contains("Рекламные кампании")')->count() > 0) { 
+            $brief = array();
+			// Запрос дополнительных параметров.
+			$items = $this->getAdsAjax( $part_id );
+			foreach ($items as $item_id => $item) {
+				$brief[$item_id] = $item;
+			}
         } else {
             // Ошибка.
-            $brief = false;
+			throw new Exception('Html don\'t contains "Рекламные кампании" words.');
         }
         return $brief;
     }
     public function getAdsAjax( $part_id, $page = 1 )
     {
-        $items = false; // Результат запроса. Список партнёрок.
-
-        $request_url = 'http://vume.justclick.ru/publicity/adsajax/';
-        //if( $this->_debug ) echo $request_url;
-        $get_data = array(
-                  'p' => $page,
-           'selector' => '{"id":"'.$part_id.'"}',
-             'format' => 'view',
-                  '_' => time().'000'
-        );
+		$request_url = $this->justclick_schema.'://'.$this->username.'.'.($this->justclick_fqdn).'/advertise/publicity/adsajax/';
+		// Подготовка данных для отправки.
+		$get_data = array(
+			'p' => $page,
+			'selector' => '{"id":"'.$part_id.'"}',
+			'format' => 'view',
+			'_' => time().'000'
+		);
         $get_query = http_build_query($get_data);
-        //echo "Get: ".$get_query."\r\n";
         if (!empty( $get_query )) $request_url .= '?'.$get_query;
-        //echo $request_url."\r\n";
-        $post_data = array(
-        );
-        $post_query = http_build_query( $post_data );
-        //echo $request_url."\r\n";
-        $result_body = $this->execCurl( $request_url, '', $post_data );
-        //if( $this->_debug) echo $result_body;
-
-        $document = phpQuery::newDocument( $result_body );
-        $form = $document->find('div.result > table.standart-view');
-        //if( $this->_debug) echo $form->html();
-        $result = array();
-        foreach ($form['tr.acordeon-tit'] as $el) {
-            $el = pq($el);
-            //if( $this->_debug) echo $el->html();
-            $group_id = $el['td:eq(0) > div.toolbar > a > i']->attr('rel');
-            $group_name = trim($el['td:eq(0)']->text());
-            //if( $this->_debug) echo "Row: '$group_id' : '$group_name'\r\n";
-            $result[$group_id]['name'] = $group_name;
-            $result[$group_id]['marks'] = $this->getAdsLabs( $part_id, $group_id );
+		$post_data = array(
+		);
+        try {
+            // Отправляется запрос на форму авторизации.
+            $crawler = $this->client->request('GET', $request_url, $post_data);
+        } catch (Guzzle\Http\Exception\CurlException $e) {
+        	echo 'Error #'.$e->getErrorNo().': '.$e->getError()."\r\n";;
         }
-        //if( $this->_debug) print_r($result);
-        return $result;
+
+		if ($crawler->filter('html:contains("Авторизация в системе")')->count() > 0) {
+				$crawler = $this->loginJc($request_url);
+		}
+
+		if ($this->_debug) echo $crawler->text();
+
+        if ($crawler->filter('html:contains("Добавить метку")')->count() > 0) { 
+			$items = array();
+			// Поиск списка партнёров из выпадающего меню.
+			$options = $crawler->filterXPath('.//body/div/table[@class="standart-view acordeon"]/tr[@class="acordeon-tit"]');
+			//var_dump($options->html());
+			$values = $options->each(function (Crawler $node, $i) {
+				//echo $node->html()."\r\n\r\n";
+				$row = $node->filterXPath('td');
+				$ad_name = trim($row->text());
+				$ad_id = $row->filterXPath('div[@class="toolbar"]/a[@class="delete-items-group"]')->attr('rel');
+				$item = array();
+				// Номер партнёрки для контроля. Вообще он в индексе записи содержится.
+				$item['id'] = $ad_id;
+				// Наименование партнёрки.
+				$item['name'] = $ad_name;
+				// Добавление к списку.
+				$items[$ad_id] = $item;
+				return array($ad_id => $item);;//$node->html();
+			});
+			foreach($values as $item) {
+				//var_dump($item);
+				$items[key($item)] = current($item);
+			}
+			//print_r($items);
+		} else {
+			throw new Exception('Html don\'t contains "Добавить метку" words.');
+		}
+        return $items;
     }
+
     public function getAdsLabs( $part_id, $group_id, $page = 1 )
     {
         $items = false; // Результат запроса. Список партнёрок.
@@ -678,43 +692,45 @@ class JustClick
         //if( $this->_debug) print_r($result);
         return $result;
     }
-      public function setAdsGroupEdit( $part_id, $group_title, $result_body = false )
+
+	/*
+	 * Добавление новой рекламной кампании.
+	 */
+	public function setAdsGroupEdit( $part_id, $group_title )
     {
-        $brief = false; // Результат запроса. Список партнёрок.
-        // Если результат запроса с предидущего шага неизвестен, то запросить его.
-        if( ! $result_body ) {
-            $request_url = 'http://'.$this->username.'.justclick.ru/publicity/adsgroupedit/id/'.$part_id.'/';
-            //if( $this->_debug) echo $request_url;
-            $get_data = array(
-            );
-            $get_query = http_build_query($get_data);
-            if (!empty( $get_query )) $request_url .= '?'.$get_query;
-            $post_data = array(
-                'group_title' => $group_title,
-                       'save' => 'Сохранить'
-            );
-            $post_query = http_build_query( $post_data );
-            //echo "Request URL: ".$request_url."\r\n";
-            $result_body = $this->execCurl( $request_url, '', $post_data );
-            //if( $this->_debug) echo $result_body;
+		$request_url = $this->justclick_schema.'://'.$this->username.'.'.($this->justclick_fqdn).'/advertise/publicity/adsgroupedit/id/'.$part_id.'/';
+		// Подготовка данных для отправки.
+		$get_data = array(
+		);
+        $get_query = http_build_query($get_data);
+        if (!empty( $get_query )) $request_url .= '?'.$get_query;
+		$post_data = array(
+			'group_title' => $group_title,
+			'save' => 'Сохранить'
+		);
+        try {
+            // Отправляется запрос на форму авторизации.
+            $crawler = $this->client->request('POST', $request_url, $post_data);
+        } catch (Guzzle\Http\Exception\CurlException $e) {
+        	echo 'Error #'.$e->getErrorNo().': '.$e->getError()."\r\n";;
         }
-        $doc = phpQuery::newDocument($result_body);
-        $title = $doc['html']['head']['title']->text();
-        //if( $this->_debug)print_r($title);
-        if ( strstr($title, 'Авторизация в системе') // Если не авторизованы.
-           && $this->_count++ < 2 // Даётся две попытки авторизации.
-        ) {
-            //if( $this->_debug) echo "true\r\n";
-            $result_body = $this->loginJc( $request_url );
-            $brief = $this->setAdsGroupEdit( $part_id, $group_title, $result_body );
-        } elseif( strstr($title, 'Рекламные кампании') ) { 
-            $this->_count = 0; 
-            // Запрос параметров статистики.
-            $brief = $this->getAdsAjax( $part_id );
-        } else {
-            // Ошибка.
-            $brief = false;
-        }
+
+		if ($crawler->filter('html:contains("Авторизация в системе")')->count() > 0) {
+				$crawler = $this->loginJc($request_url);
+		}
+
+		if ($this->_debug) echo $crawler->text();
+
+        if ($crawler->filter('html:contains("Рекламные кампании")')->count() > 0) { 
+            $brief = array();
+			// Запрос дополнительных параметров.
+			$items = $this->getAdsAjax( $part_id );
+			foreach ($items as $item_id => $item) {
+				$brief[$item_id] = $item;
+			}
+		} else {
+			throw new Exception('Html don\'t contains "Рекламные кампании" words.');
+		}
         return $brief;
     }
       public function setAdsEdit( $part_id, $group_id, $ad_title, $ad_url, $result_body = false )

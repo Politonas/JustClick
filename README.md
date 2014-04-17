@@ -7,32 +7,40 @@ PHP interface to JustClick.Ru
 ==========================
 
 Создан специальный временный скрип, для проерки как запускается разрабатываемый класс.
-    php justclick2.php
+```php justclick2.php
+```
 Запуск тестов
-    phpunit -c app/
-    phpunit -c app/ src/Acme/StoreBundle/Tests/Controller/
-    phpunit -c app/ src/Acme/StoreBundle/Tests/Controller/JustClick.php
+```phpunit -c app/
+phpunit -c app/ src/Acme/StoreBundle/Tests/Controller/
+phpunit -c app/ src/Acme/StoreBundle/Tests/Controller/JustClick.php
+```
 Для сборки проекта и запуска тестов
-    ant
+```ant
+```
 
 Работа с Composer
 =================
 
 Обновление зависимостей и библиотек
-    php composer.phar update
+```php composer.phar update
+```
 Обновление самого запускаемого файла composer.phar
-    php composer.phar self-update
+```php composer.phar self-update
+```
 Добавление новой зависимости
-    php composer.phar require guzzlehttp/guzzle:~3
-
+```php composer.phar require guzzlehttp/guzzle:~3
+```
 
 Работа с Git
 ===========
 
 Фиксирование изменений
-    git commit -a -m "added travis.yml"
+```git commit -a -m "added travis.yml"
+```
+
 Запись изменений на GitHub
-    git push https://github.com/bakulev/JustClick.git
+```git push https://github.com/bakulev/JustClick.git
+```
 
 Планируемые улучшения
 =====================
@@ -46,21 +54,33 @@ PHP interface to JustClick.Ru
 ========
 
 Сохранение cookie.
+------------------
+
 Чтобы сохранять cookie в файл сделал в конструкторе:
-    $this->client = new Client();
-    // Установка перманентных cookie в файл.
-    $cookie_file_name = '/tmp/justclick_cookie.jar';
-    $cookiePlugin = new CookiePlugin(new FileCookieJar($cookie_file_name));
-    $this->client->getClient()->getEventDispatcher()->addSubscriber($cookiePlugin);
+```$this->client = new Client();
+// Установка перманентных cookie в файл.
+$cookie_file_name = '/tmp/justclick_cookie.jar';
+$cookiePlugin = new CookiePlugin(new FileCookieJar($cookie_file_name));
+$this->client->getClient()->getEventDispatcher()->addSubscriber($cookiePlugin);
+```
 А в 
-    vendor/guzzle/plugin-cookie/Guzzle/Plugin/Cookie/CookieJar/ArrayCookieJar.php
+`vendor/guzzle/plugin-cookie/Guzzle/Plugin/Cookie/CookieJar/ArrayCookieJar.php`
 исправил метод 
-    function serialize $this->all(null, null, null, false, false))); 
+`function serialize $this->all(null, null, null, false, false)));` 
 поставил false, false, чтобы сохранялись не только долгие cookie, но и сессионные.
 
 В класс обработчик файла для cookie
-    vendor/guzzle/plugin-cookie/Guzzle/Plugin/Cookie/CookieJar/FileCookieJar.php
-добавил в метод load проверку существования и возможности записи в файл.
+`vendor/guzzle/plugin-cookie/Guzzle/Plugin/Cookie/CookieJar/FileCookieJar.php`
+добавил в метод `load` проверку существования и возможности записи в файл.
+
+Работа с Markdown
+=================
+
+Хорошее описание работы с `.md` файлами и создание книг на их основе 
+* http://habrahabr.ru/post/218433/
+
+Вот тут много полезного синтаксиса использовано
+* https://raw.githubusercontent.com/denisshevchenko/ohaskell/master/ru/prepare/create-project.md
 
 Разное
 ======
