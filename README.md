@@ -1,54 +1,66 @@
-JustClick
-=========
+Disclaimer. Предупреждение.
+===========================
 
 PHP interface to JustClick.Ru
+
+This repository created for private puroposes and it's contents is not functional product code.
+
+Этот репозиторий создан для частных нужд и его содержимое не является чем-то функциональным.
 
 Проверка работоспособности
 ==========================
 
 Создан специальный временный скрип, для проерки как запускается разрабатываемый класс.
-```php justclick2.php
+```bash
+php -q ./justclick2.php
 ```
 Запуск тестов
-```phpunit -c app/
+```bash
+phpunit -c app/
 phpunit -c app/ src/Acme/StoreBundle/Tests/Controller/
 phpunit -c app/ src/Acme/StoreBundle/Tests/Controller/JustClick.php
 ```
 Для сборки проекта и запуска тестов
-```ant
+```bash
+ant
 ```
 
 Работа с Composer
 =================
 
 Обновление зависимостей и библиотек
-```php composer.phar update
+```bash
+php composer.phar update
 ```
 Обновление самого запускаемого файла composer.phar
-```php composer.phar self-update
+```bash
+php composer.phar self-update
 ```
 Добавление новой зависимости
-```php composer.phar require guzzlehttp/guzzle:~3
+```bash
+php composer.phar require guzzlehttp/guzzle:~3
 ```
 
 Работа с Git
 ===========
 
 Фиксирование изменений
-```git commit -a -m "added travis.yml"
+```bash
+git commit -a -m "added travis.yml"
 ```
 
 Запись изменений на GitHub
-```git push https://github.com/bakulev/JustClick.git
+```bash
+git push https://github.com/bakulev/JustClick.git
 ```
 
 Планируемые улучшения
 =====================
 
 Реализовать повтор вызовов после exception способом, описанным тут:
-    http://codehelper.ru/questions/367/springnet-aop-%D0%B7%D0%B0-%D1%81%D1%86%D0%B5%D0%BD%D0%BE%D0%B9-%D1%87%D0%B0%D1%81%D1%82%D1%8C-1
+* http://codehelper.ru/questions/367/springnet-aop-%D0%B7%D0%B0-%D1%81%D1%86%D0%B5%D0%BD%D0%BE%D0%B9-%D1%87%D0%B0%D1%81%D1%82%D1%8C-1
 Описание создани Exception в PHP:
-	http://project.net.ru/web-master/php/article5/language.exceptions.html
+* http://project.net.ru/web-master/php/article5/language.exceptions.html
 
 Изменения
 ========
@@ -57,7 +69,8 @@ phpunit -c app/ src/Acme/StoreBundle/Tests/Controller/JustClick.php
 ------------------
 
 Чтобы сохранять cookie в файл сделал в конструкторе:
-```$this->client = new Client();
+```php
+$this->client = new Client();
 // Установка перманентных cookie в файл.
 $cookie_file_name = '/tmp/justclick_cookie.jar';
 $cookiePlugin = new CookiePlugin(new FileCookieJar($cookie_file_name));
@@ -86,6 +99,8 @@ $this->client->getClient()->getEventDispatcher()->addSubscriber($cookiePlugin);
 ======
 
 Для отладки запросов используется запрос к своему серверу:
-	 $request_url = 'http://tirmethod.vipforex.com/request_debug.php';
+```php
+$request_url = 'http://tirmethod.vipforex.com/request_debug.php';
+```
 Описание использования Crawler XPath в Symfony2:
-	http://symfony.com/doc/current/components/dom_crawler.html
+* http://symfony.com/doc/current/components/dom_crawler.html
